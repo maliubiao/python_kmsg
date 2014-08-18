@@ -5,10 +5,10 @@ read kernel log from /dev/kmsg
 import sys, os, fcntl, errno, pprint
 import _kmsg
 
-__author__ == "maliubiao<maliubiao@gmail.com"
-__status__ == "production"
-__version__ == "0.01"
-__date__ == "23 Febrary 2014"
+__author__ = "maliubiao<maliubiao@gmail.com>"
+__status__ = "production"
+__version__ = "0.01"
+__date__ = "23 Febrary 2014"
 
 klogctl = _kmsg.klogctl
 
