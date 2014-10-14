@@ -1,9 +1,6 @@
-"""
-read kernel log from /dev/kmsg
-"""
-
 import sys, os, fcntl, errno, pprint
 import _kmsg
+import argparse
 
 __author__ = "maliubiao<maliubiao@gmail.com>"
 __status__ = "production"
@@ -52,6 +49,9 @@ log_level_dict = {
         LOG_DEBUG: ("debug", "debug-level message")
         }
 
+log_dict = dict([(y[0], x) for x, y in log_level_dict.items()])
+       
+
 facility_codes_dict = {
         LOG_KERN: ("kernel", "kernel messages"),
         LOG_USER: ("user", "random user-level messages"),
@@ -66,6 +66,9 @@ facility_codes_dict = {
         LOG_AUTHPRIV: ("authpriv", "security/authorization messages (private)"),
         LOG_FTP: ("ftp", "ftp daemon")
         }
+
+fac_dict = dict([(y[0], x) for x, y in facility_codes_dict.items()])
+
 
 LOG_NO_PRI = 0x10 
 
@@ -83,13 +86,13 @@ def log_make_pri(fac, pri):
 
 OPTION_KMSG, OPTION_SYSLOG, OPTION_MMAP = range(3)
 
-def parse_msg(context, msg): 
+def parse_msg(msg): 
     '''
     /dev/kmsg record format:
         faclev,seqnum,timestamp[optional,..];message\n
          TAGNAME=value
          ...
-    '''
+    ''' 
     #msg header and body
     header_loc = msg.find(";")
     header = msg[:header_loc]
@@ -114,7 +117,7 @@ def parse_msg(context, msg):
             tags_dict[k] = v
     else:
         tags_dict = None 
-    context["msgs"].append({
+    return {
         "fac": log_fac(facpri),
         "pri": log_pri(facpri),
         "seqnum": seq,
@@ -122,14 +125,14 @@ def parse_msg(context, msg):
         "other": other,
         "msg": msg,
         "tags": tags_dict
-        })
-       
+        } 
 
-def read_kmsg(context): 
+def read_kmsg(): 
     f = open("/dev/kmsg", "r")
     fd = os.dup(f.fileno())
     f.close() 
     fcntl.fcntl(fd, fcntl.F_SETFL, os.O_NONBLOCK)
+    msgs = []
     while True:
         try:
             msg = os.read(fd, BUF_SIZE)
@@ -138,19 +141,43 @@ def read_kmsg(context):
                 break
             else:
                 raise e 
-        parse_msg(context, msg)
+        msgs.append(parse_msg(msg))
     os.close(fd) 
+    return msgs
 
-def read_klog(option):
-    context = {}
-    context['msgs'] = []
-    if option == OPTION_KMSG:
-        read_kmsg(context)
-    return context
+def filter_pri(msgs, pri):
+    ret = []
+    for i in msgs:
+        if i["pri"] == pri:
+            ret.append(i)
+    return ret
+
+def filter_fac(msgs, fac):
+    ret = []
+    for i in msgs:
+        if i["pri"] == pri:
+            ret.append(i)
+    return ret 
+
 
 def main():
-    context = read_klog(OPTION_KMSG)
-    pprint.pprint(context)
+    parser = argparse.ArgumentParser(
+        description="a klog filter")
+    parser.add_argument("-p", type=str, help="filter by pri")
+    parser.add_argument("-f", type=str, help="filter by fac")
+    args = parser.parse_args() 
+    if args.p:
+        msgs = read_kmsg() 
+        if args.p in log_dict:
+            pprint.pprint(filter_pri(msgs, log_dict[args.p]))
+        else:
+            print "unknown log level"
+    if args.f:
+        msgs = read_kmsg() 
+        if args.f in fac_dict: 
+            pprint.pprint(filter_fac(msgs, fac_dict[args.p])) 
+        else:
+            print "unknown facility"
 
 if __name__ == "__main__":
     main()
